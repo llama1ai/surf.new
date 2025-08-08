@@ -8,9 +8,6 @@ import { useRouter } from "next/navigation";
 import { AuthModal } from "@/components/ui/AuthModal";
 import { ChatInput } from "@/components/ui/ChatInput";
 
-import { useToast } from "@/hooks/use-toast";
-
-import { isLocalhost } from "@/lib/utils";
 
 import Clouds from "@/public/clouds.png";
 
@@ -23,7 +20,6 @@ export default function Home() {
   const { resetSession } = useSteelContext();
   const { setInitialMessage, clearInitialState } = useChatContext();
   const { currentSettings, updateSettings } = useSettings();
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -44,24 +40,6 @@ export default function Home() {
     return () => clearTimeout(focusTimer);
   }, []); // Empty deps array means this runs once on mount
 
-  const checkApiKey = () => {
-    // const provider = currentSettings?.selectedProvider;
-    // if (!provider) return false;
-    // return !!currentSettings?.providerApiKeys?.[provider];
-
-    // // For Ollama, we don't need an API key as it connects to a local instance
-    // if (currentSettings?.selectedProvider === 'ollama') {
-    //   return true;
-    // }
-
-    // // For other providers, check if API key exists
-    // const provider = currentSettings?.selectedProvider;
-    // if (!provider) return false;
-    // const hasKey = !!currentSettings?.providerApiKeys?.[provider];
-    // return hasKey;
-
-    return true;
-  };
   const handleApiKeySubmit = (key: string) => {
     const provider = currentSettings?.selectedProvider;
     if (!provider) return;
@@ -91,22 +69,6 @@ export default function Home() {
     try {
       setLoading(true);
       resetSession();
-      // Check if we have the API key or if Ollama is selected locally
-      if (!checkApiKey()) {
-        if (currentSettings?.selectedProvider === "ollama" && !isLocalhost()) {
-          toast({
-            title: "Cannot use Ollama",
-            className:
-              "text-[var(--gray-12)] border border-[var(--red-11)] bg-[var(--red-2)] text-sm",
-            description:
-              "Please select a different model provider or run the app locally to use Ollama.",
-          });
-        } else {
-          pendingQueryRef.current = query;
-          setShowApiKeyModal(true);
-        }
-        return;
-      }
       proceedToChat(query);
     } catch (err) {
       console.error("Error creating session:", err);
@@ -190,21 +152,6 @@ export default function Home() {
                   e.preventDefault();
                   if (!loading) {
                     resetSession();
-                    if (!checkApiKey()) {
-                      if (currentSettings?.selectedProvider === "ollama" && !isLocalhost()) {
-                        toast({
-                          title: "Cannot use Ollama",
-                          className:
-                            "text-[var(--gray-12)] border border-[var(--red-11)] bg-[var(--red-2)] text-sm",
-                          description:
-                            "Please select a different model provider or run the app locally to use Ollama.",
-                        });
-                      } else {
-                        pendingQueryRef.current = button.text;
-                        setShowApiKeyModal(true);
-                      }
-                      return;
-                    }
                     proceedToChat(button.text);
                   }
                 }}

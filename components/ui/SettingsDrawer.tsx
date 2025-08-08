@@ -25,10 +25,7 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-import { useToast } from "@/hooks/use-toast";
-
 import { cn } from "@/lib/utils";
-import { isLocalhost } from "@/lib/utils";
 
 import { Agent, SettingConfig, SupportedModel } from "@/types/agents";
 
@@ -36,7 +33,6 @@ import { useChatContext } from "@/app/contexts/ChatContext";
 import { AgentSettings, ModelSettings, useSettings } from "@/app/contexts/SettingsContext";
 import { useSteelContext } from "@/app/contexts/SteelContext";
 import { useAgents } from "@/app/hooks/useAgents";
-import { useOllamaModels } from "@/app/hooks/useOllamaModels";
 
 export function SettingsButton() {
   const { currentSettings } = useSettings();
@@ -198,12 +194,10 @@ function SettingsContent({ closeSettings }: { closeSettings: () => void }) {
   const router = useRouter();
   const { clearInitialState } = useChatContext();
   const { resetSession } = useSteelContext();
-  const { toast } = useToast();
 
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const { data: agents, isLoading: isLoadingAgents } = useAgents();
-  const { data: ollamaData, isLoading: isLoadingOllama, error: ollamaError } = useOllamaModels();
 
   // Handle initial agent selection
   useEffect(() => {
@@ -363,14 +357,7 @@ function SettingsContent({ closeSettings }: { closeSettings: () => void }) {
               const agent = agents[value] as Agent;
               const defaultProvider = agent.supported_models[0].provider;
 
-              // If default provider is Ollama and not running locally, use the second provider
-              const provider =
-                defaultProvider === "ollama" && !isLocalhost()
-                  ? agent.supported_models[1]?.provider
-                  : defaultProvider;
-
-              // If no valid provider found, return early
-              if (!provider) return;
+              const provider = defaultProvider;
 
               const providerModels = agent.supported_models.find(
                 (m: SupportedModel) => m.provider === provider
@@ -457,17 +444,6 @@ function SettingsContent({ closeSettings }: { closeSettings: () => void }) {
                 <Select
                   value={currentSettings.selectedModel}
                   onValueChange={value => {
-                    // Prevent model selection if Ollama is selected and not running locally
-                    if (currentSettings.selectedProvider === "ollama" && !isLocalhost()) {
-                      toast({
-                        title: "Cannot use Ollama",
-                        className:
-                          "text-[var(--gray-12)] border border-[var(--red-11)] bg-[var(--red-2)] text-sm",
-                        description:
-                          "Please select a different model provider or run the app locally to use Ollama.",
-                      });
-                      return;
-                    }
                     updateSettings({
                       ...currentSettings,
                       selectedModel: value,
@@ -478,53 +454,15 @@ function SettingsContent({ closeSettings }: { closeSettings: () => void }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="settings-input">
-                    {currentSettings.selectedProvider === "ollama" ? (
-                      !isLocalhost() ? (
-                        <SelectItem value="local-only" disabled>
-                          Ollama models only available when running locally
-                        </SelectItem>
-                      ) : isLoadingOllama ? (
-                        <SelectItem value="loading" disabled>
-                          Loading Ollama models...
-                        </SelectItem>
-                      ) : ollamaError ? (
-                        <>
-                          <SelectItem value="error" disabled>
-                            Error loading models
-                          </SelectItem>
-                          {currentAgent.supported_models
-                            .find(
-                              (m: SupportedModel) => m.provider === currentSettings.selectedProvider
-                            )
-                            ?.models.map((model: string) => (
-                              <SelectItem key={model} value={model}>
-                                {model} (fallback)
-                              </SelectItem>
-                            ))}
-                        </>
-                      ) : ollamaData?.models && ollamaData.models.length > 0 ? (
-                        ollamaData.models.map(model => (
-                          <SelectItem key={model.tag} value={model.tag}>
-                            {model.tag}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no-models" disabled>
-                          No models found. Install models with{" "}
-                          <code className="text-xs">ollama pull</code>
-                        </SelectItem>
+                    {currentAgent.supported_models
+                      .find(
+                        (m: SupportedModel) => m.provider === currentSettings.selectedProvider
                       )
-                    ) : (
-                      currentAgent.supported_models
-                        .find(
-                          (m: SupportedModel) => m.provider === currentSettings.selectedProvider
-                        )
-                        ?.models.map((model: string) => (
-                          <SelectItem key={model} value={model}>
-                            {model}
-                          </SelectItem>
-                        ))
-                    )}
+                      ?.models.map((model: string) => (
+                        <SelectItem key={model} value={model}>
+                          {model}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -532,7 +470,7 @@ function SettingsContent({ closeSettings }: { closeSettings: () => void }) {
           )}
 
           {/* API Key Management */}
-          {currentSettings.selectedProvider && currentSettings.selectedProvider !== "ollama" && (
+          {currentSettings.selectedProvider && (
             <div className="space-y-2 pt-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">
@@ -595,109 +533,7 @@ function SettingsContent({ closeSettings }: { closeSettings: () => void }) {
             </div>
           )}
 
-          {/* Azure OpenAI Settings */}
-          {currentSettings.selectedProvider === "azure_openai" && (
-            <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Azure OpenAI Endpoint</label>
-                <Input
-                  type="text"
-                  placeholder="https://your-resource.openai.azure.com/"
-                  value={currentSettings.modelSettings?.azure_endpoint || ""}
-                  onChange={e => handleSettingChange("model", "azure_endpoint", e.target.value)}
-                  className="settings-input"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">API Version</label>
-                <Input
-                  type="text"
-                  placeholder="2025-01-01-preview"
-                  value={currentSettings.modelSettings?.api_version || "2025-01-01-preview"}
-                  onChange={e => handleSettingChange("model", "api_version", e.target.value)}
-                  className="settings-input"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Ollama Instructions */}
-          {currentSettings.selectedProvider === "ollama" && (
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Ollama Setup</label>
-              </div>
-              <div className="rounded-md bg-[--gray-3] p-3">
-                {!isLocalhost() ? (
-                  <>
-                    <p className="mb-2 text-sm text-[--gray-12]">
-                      Ollama is a self-hosted solution that requires running the app locally.
-                    </p>
-                    <p className="mb-2 text-sm text-[--gray-11]">
-                      1. Clone and run surf.new locally first:
-                      <code className="mt-1 block rounded bg-[--gray-4] p-1 text-xs">
-                        git clone https://github.com/steel-dev/surf.new cd surf.new npm install npm
-                        run dev
-                      </code>
-                    </p>
-                    <p className="mb-2 text-sm text-[--gray-11]">
-                      2. Install Ollama from{" "}
-                      <span className="cursor-not-allowed text-[--blue-11]">ollama.com</span>
-                    </p>
-                    <p className="mb-2 text-sm text-[--gray-11]">
-                      3. Run Ollama locally with the model of your choice:
-                      <code className="mt-1 block rounded bg-[--gray-4] p-1 text-xs">
-                        ollama run {currentSettings.selectedModel || "MODEL_NAME"}
-                      </code>
-                    </p>
-                    <p className="text-sm text-[--gray-11]">
-                      Visit{" "}
-                      <span className="cursor-not-allowed text-[--blue-11]">
-                        our GitHub repository
-                      </span>{" "}
-                      for detailed setup instructions.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="mb-2 text-sm text-[--gray-12]">
-                      Ollama runs locally on your machine and doesn&#39;t require an API key.
-                    </p>
-                    <p className="mb-2 text-sm text-[--gray-11]">
-                      1. Install Ollama from{" "}
-                      <a
-                        href="https://ollama.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[--blue-11] hover:underline"
-                      >
-                        ollama.com
-                      </a>
-                    </p>
-                    <p className="mb-2 text-sm text-[--gray-11]">
-                      2. Run Ollama locally with the model of your choice:
-                      <code className="mt-1 block rounded bg-[--gray-4] p-1 text-xs">
-                        ollama run {currentSettings.selectedModel || "MODEL_NAME"}
-                      </code>
-                    </p>
-                    <p className="text-sm text-[--gray-11]">
-                      3. Surf.new will connect to your local Ollama instance automatically
-                    </p>
-                  </>
-                )}
-                {ollamaError && (
-                  <div className="mt-2 rounded-md border border-[--red-6] bg-[--red-3] p-2 text-xs text-[--red-11]">
-                    Error:{" "}
-                    {ollamaError instanceof Error
-                      ? ollamaError.message
-                      : "Failed to fetch Ollama models"}
-                    . Make sure Ollama is running.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Azure OpenAI Settings removed */}
 
           {/* Advanced Settings */}
           <div className="space-y-2">
@@ -776,17 +612,6 @@ function SettingsContent({ closeSettings }: { closeSettings: () => void }) {
         <div
           className="inline-flex h-8 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-[--gray-12] px-3 py-1"
           onClick={() => {
-            // Prevent saving if Ollama is selected when not running locally
-            if (currentSettings.selectedProvider === "ollama" && !isLocalhost()) {
-              toast({
-                title: "Cannot use Ollama",
-                className:
-                  "text-[var(--gray-12)] border border-[var(--red-11)] bg-[var(--red-2)] text-sm",
-                description:
-                  "Please select a different model provider or run the app locally to use Ollama.",
-              });
-              return;
-            }
             handleSave();
           }}
         >
