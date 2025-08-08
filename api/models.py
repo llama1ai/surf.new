@@ -3,15 +3,8 @@ from typing import Optional
 
 
 class ModelProvider(str, Enum):
-    OPENAI = "openai"
     AZURE_OPENAI = "azure_openai"
-    ANTHROPIC = "anthropic"
-    ANTHROPIC_COMPUTER_USE = "anthropic_computer_use"
     GEMINI = "gemini"
-    DEEPSEEK = "deepseek"
-    OLLAMA = "ollama"
-    # OPENROUTER = "openrouter"
-    # GOOGLE = "google"
 
 
 class ModelConfig:
@@ -87,12 +80,7 @@ class ModelConfig:
         Returns a default model for each provider.
         """
         default_models = {
-            ModelProvider.OPENAI: "gpt-4.1",
             ModelProvider.AZURE_OPENAI: "gpt-4.1",
-            ModelProvider.ANTHROPIC: "claude-sonnet-4-20250514",
-            ModelProvider.ANTHROPIC_COMPUTER_USE: "claude-3-5-sonnet-20241022",
-            ModelProvider.GEMINI: "gemini-2.0-flash",
-            ModelProvider.DEEPSEEK: "deepseek-chat",
-            ModelProvider.OLLAMA: "llama3.3",
+            ModelProvider.GEMINI: "gemini-2.5-pro",
         }
         return default_models.get(provider) or ValueError("Unsupported provider.")
